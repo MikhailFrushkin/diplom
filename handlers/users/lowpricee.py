@@ -5,6 +5,7 @@ from loader import dp
 
 
 @dp.message_handler(Command('lowprice'))
-async def bot_start(message: types.Message):
-    await message.answer('Вы выбрали поиск по увеличению ценны\n'
+async def lowprice(message: types.Message):
+    await message.answer('Вы выбрали поиск по увеличению цены\n'
                          'введите название города')
+

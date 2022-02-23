@@ -5,5 +5,5 @@ from loader import dp
 
 
 @dp.message_handler(Command('history'))
-async def bot_start(message: types.Message):
+async def history(message: types.Message):
     await message.answer('История запросов:')

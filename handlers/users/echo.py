@@ -1,13 +1,28 @@
 from aiogram import types
 from aiogram.dispatcher import FSMContext
 
+from handlers.users.bestdeal import bestdeal
+from handlers.users.help import bot_help
+from handlers.users.highprice import highprice
+from handlers.users.history import history
+from handlers.users.lowpricee import lowprice
 from loader import dp
 
 
-# Эхо хендлер, куда летят текстовые сообщения без указанного состояния
 @dp.message_handler(state=None)
 async def bot_echo(message: types.Message):
-    await message.answer('{} - неверная команда. Для справки введите /help'.format(message.text))
+    if message.text == 'Поиск по возрастанию цены':
+        await lowprice(message)
+    elif message.text == 'Поиск по убыванию цены':
+        await highprice(message)
+    elif message.text == 'Поиск по точным параметрам':
+        await bestdeal(message)
+    elif message.text == 'Помощь':
+        await bot_help(message)
+    elif message.text == 'История':
+        await history(message)
+    else:
+        await message.answer('{} - неверная команда. Для справки введите /help'.format(message.text))
 
 
 @dp.message_handler(state="*", content_types=types.ContentTypes.ANY)
