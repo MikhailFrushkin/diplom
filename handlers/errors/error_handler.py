@@ -24,11 +24,9 @@ async def errors_handler(update, exception):
         # or here
         logger.exception(f'CantParseEntities: {exception} \nUpdate: {update}')
         return True
-      
-    #  MUST BE THE  LAST CONDITION (ЭТО УСЛОВИЕ ВСЕГДА ДОЛЖНО БЫТЬ В КОНЦЕ)
+
     if isinstance(exception, TelegramAPIError):
         logger.exception(f'TelegramAPIError: {exception} \nUpdate: {update}')
         return True
     
-    # At least you have tried.
     logger.exception(f'Update: {update} \n{exception}')
