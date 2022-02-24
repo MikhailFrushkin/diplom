@@ -12,13 +12,13 @@ class Users(BaseModel):
     user_id = IntegerField(primary_key=True)
     first_name = CharField(default='')
     last_name = CharField(default='')
-    user_name = CharField()
+    user_name = CharField(default='')
 
 
 class Message(BaseModel):
     message_id = IntegerField(primary_key=True)
     command = CharField()
-    created_at = TimestampField
+    created_at = TimestampField()
     city_name = CharField()
     hotels_amount = IntegerField()
     photo_amount = IntegerField(default=0)

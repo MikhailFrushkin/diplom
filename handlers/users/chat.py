@@ -3,18 +3,17 @@ from aiogram.dispatcher import FSMContext
 
 from handlers.users.bestdeal import bestdeal
 from handlers.users.help import bot_help
-from handlers.users.highprice import highprice
 from handlers.users.history import history
-from handlers.users.lowpricee import lowprice
+
 from loader import dp
 
 
 @dp.message_handler(state=None)
 async def bot_echo(message: types.Message):
     if message.text == 'Поиск по возрастанию цены':
-        await lowprice(message)
+        pass
     elif message.text == 'Поиск по убыванию цены':
-        await highprice(message)
+        pass
     elif message.text == 'Поиск по точным параметрам':
         await bestdeal(message)
     elif message.text == 'Помощь':

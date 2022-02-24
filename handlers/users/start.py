@@ -13,11 +13,7 @@ async def bot_start(message: types.Message):
                          '\nИ я помогу, подобрать отель на время поездки.'
                          '\nДля вызова справки введите /help'.format(message.from_user.first_name))
     await message.answer('Выберите действие', reply_markup=menu)
-    await Users.create(user_id=message.from_user.id,
-                       first_name=message.from_user.first_name,
-                       last_name=message.from_user.last_name,
-                       user_name=message.from_user.username)
-    user_data = [{'nuser_id': message.from_user.id}, {'first_name': message.from_user.first_name},
-                 {'first_name': message.from_user.first_name}, {'last_name': message.from_user.last_name},
-                 {'user_name': message.from_user.username}]
-    Users.insert_many(user_data).execute()
+    # user_data = [{'nuser_id': message.from_user.id}, {'first_name': message.from_user.first_name},
+    #              {'first_name': message.from_user.first_name}, {'last_name': message.from_user.last_name},
+    #              {'user_name': message.from_user.username}]
+    # Users.insert_many(user_data).execute()

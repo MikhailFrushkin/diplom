@@ -4,11 +4,11 @@ from environs import Env
 env = Env()
 env.read_env()
 
-BOT_TOKEN = env.str("BOT_TOKEN")
-ADMINS = env.list("ADMINS")
+BOT_TOKEN = env.str('BOT_TOKEN')
+ADMINS = env.list('ADMINS')
 API_KEY = env.str('Key')
-API_HOST = "hotels4.p.rapidapi.com"
-BASE_URL = "https://hotels4.p.rapidapi.com"
+API_HOST = 'hotels4.p.rapidapi.com'
+BASE_URL = 'https://hotels4.p.rapidapi.com'
 
 headers = {
     'x-rapidapi-host': API_HOST,
