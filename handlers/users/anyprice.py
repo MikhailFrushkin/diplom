@@ -6,7 +6,6 @@ import re
 
 from data.requests import get_city_id
 from data import config
-from keyboards.inline.is_photo import is_photo
 from loader import dp
 from states.anyprice import Anyprice
 from utils.chek_local import locale_check
@@ -139,31 +138,6 @@ async def answer_check_out(call: types.CallbackQuery, callback_data: dict, state
         async with state.proxy() as data:
             data['check_out'] = check_out_date
 
-        logger.info('Спрашиваем у пользователя о количестве взрослых.')
-        await call.message.answer('Сколько человек будет заселяться? ')
-        logger.info('Сохраняю ответ в state: adult_qnt')
         await Anyprice.next()
 
 
-@dp.message_handler(state=Anyprice.adults_qnt)
-async def answer_adult_qnt(message: types.Message, state: FSMContext):
-    """
-    Получает ответ пользователя о количестве взрослых
-    :param message:
-    :param state:
-    :return:
-    """
-    answer = message.text
-    pattern = re.search(r'\D', answer)
-    if pattern:
-        await message.answer('Введите цифрами')
-
-    logger.info(f'Получил ответ {answer}')
-
-    async with state.proxy() as data:
-        data['adults_qnt'] = int(answer)
-
-    logger.info('Спрашиваем у пользователя о количестве взрослых.')
-    await message.answer('Загрузить фотографии?', reply_markup=is_photo)
-    logger.info('Сохраняю ответ в state: adult_qnt')
-    await Anyprice.next()
