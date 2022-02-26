@@ -6,3 +6,4 @@ is_photo = InlineKeyboardMarkup(row_width=2, inline_keyboard=[
         InlineKeyboardButton(text='Нет', callback_data='нет')
     ]
 ])
+
