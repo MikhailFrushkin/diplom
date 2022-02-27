@@ -57,6 +57,7 @@ async def get_hotels(city_id: int, hotels_amount: int, currency: str, locale: st
     params = [('destinationId', city_id), ('pageNumber', 1), ('pageSize', hotels_amount), ('checkIn', check_in),
               ('checkOut', check_out), ('sortOrder', price_sort),
               ('locale', locale), ('currency', currency)]
+    logger.info('параметры {}'.format(params))
     try:
         async with aiohttp.ClientSession() as session:
             async with session.get(url, headers=config.headers, params=params) as resp:
@@ -64,6 +65,7 @@ async def get_hotels(city_id: int, hotels_amount: int, currency: str, locale: st
                 response = await resp.json()
                 hotels = response.get('data').get('body').get('searchResults').get('results')
                 if hotels:
+                    logger.info('получил отели {}'.format(hotels))
                     return hotels
                 logger.error('Гостиниц по вашему запросу не найдено!')
                 return None

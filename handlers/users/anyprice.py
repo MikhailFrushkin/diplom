@@ -1,4 +1,3 @@
-# from aiogram_calendar import simple_cal_callback, SimpleCalendar
 from datetime import datetime, date
 
 from telegram_bot_calendar import DetailedTelegramCalendar
@@ -7,12 +6,14 @@ from aiogram.dispatcher import FSMContext
 from loguru import logger
 import re
 
-from data.requests import get_city_id
+from data.requests import get_city_id, get_hotels
 from data import config
+from keyboards.inline.is_photo import is_photo
 
 from loader import dp, bot
 from states.anyprice import Anyprice
 from utils.chek_local import locale_check
+from data.handler_request import handler_request
 
 
 @dp.message_handler(commands=['lowprice', 'highprice'], state='*')
@@ -114,7 +115,7 @@ async def inline_kb_answer_callback_handler(call: types.CallbackQuery, state: FS
                                     call.message.message_id)
         logger.info('Получили дату заезда: - {}'.format(result))
         async with state.proxy() as data:
-            data['check_in'] = result
+            data['check_in'] = str(result)
             logger.info('Сохраняю ответ в state: check_in_date')
         await call.message.answer('Выберите дату выезда')
         logger.info('Вызываю Календарь выезда')
@@ -141,9 +142,107 @@ async def inline_kb_answer_callback_handler(call: types.CallbackQuery, state: FS
                                     call.message.message_id)
         logger.info('Получили дату выезда: - {}'.format(result))
         async with state.proxy() as data:
-            data['check_out'] = result
+            data['check_out'] = str(result)
             logger.info('Сохраняю ответ в state: check_out_date')
         logger.info('Спрашиваем сколько фото показать.')
-        await call.message.answer('Сколько фотографий показать? ')
+        await call.message.answer('Загрузить фотографии?', reply_markup=is_photo)
         await Anyprice.next()
+
+
+@dp.callback_query_handler(state=Anyprice.IsPhoto)
+async def answer_is_photo(call: types.CallbackQuery, state: FSMContext):
+    """
+        Получает ответ из answer_hotel_amount хэндлера, сохраняет в кэш, в зависимости от результата прошлого ответа,
+        или спрашивает следующий вопрос и сохраняет в state следующего вопроса или обнуляет state
+
+        :param call: входящее сообщение из state
+        :param state: Переданный контекст
+        """
+    await call.answer(cache_time=60)
+    answer: str = call.data
+    logger.info('Получил ответ: {}. Сохраняю в state'.format(answer))
+
+    async with state.proxy() as data:
+        data['is_photo']: str = answer
+
+        if data['is_photo'] == 'да':
+            await call.message.answer('Укажите количество фотографий. (max: {})'.format(config.MAX_PHOTO_TO_SHOW))
+            await Anyprice.next()
+
+        elif data['is_photo'] == 'нет':
+
+            await call.message.answer('Загружаю информацию, ожидайте...')
+            hotels = await get_hotels(city_id=data['city_id'], hotels_amount=data['hotels_amount'],
+                                      currency=data['currency'], locale=data['locale'],
+                                      check_in=data['check_in'], check_out=data['check_out'],
+                                      price_sort=data['price_sort'])
+
+            if not hotels:
+                await call.message.answer('Гостиниц по Вашему запросу не найдено!')
+            else:
+                data_to_user_response = await handler_request(request=hotels, message_data=data, is_photo=False)
+                for hotel in data_to_user_response:
+                    hotel_id = hotel.get('hotel_id')
+                    answer_message = f'{hotel.get("hotel_name")}\n' \
+                                     f'адрес: {hotel.get("address")}\n' \
+                                     f'расстояние от центра: {hotel.get("distance_from_center")}\n' \
+                                     f'цена: {hotel.get("price")}\n' \
+                                     f'ссылка на отель: {f"ru.hotels.com/ho{hotel_id}"}'
+
+                    await call.message.answer(answer_message)
+            await state.reset_state()
+            logger.info('Очистил state')
+
+
+@dp.message_handler(state=Anyprice.Photo_amount)
+async def answer_photo_amount(message: types.Message, state: FSMContext):
+    """
+       Получает ответ из answer_is_photo хэндлера, сохраняет в кэш.
+       Делает запрос к RapidApi, возвращает ответ пользователю.
+
+       :param message: входящее сообщение из state
+       :param state: Переданный контекст
+       :return: None
+       """
+    answer = message.text
+    pattern = re.search(r'\D', answer)
+    if pattern:
+        await message.answer('Введите цифрами')
+
+    logger.info(f'Получил ответ: {answer}. Сохраняю в state')
+
+    async with state.proxy() as data:
+        data['photo_amount'] = int(answer)
+        await message.answer('Загружаю информацию, ожидайте...')
+
+    hotels: list = await get_hotels(city_id=data['city_id'], hotels_amount=data['hotels_amount'],
+                                    currency=data['currency'], locale=data['locale'],
+                                    check_in=data['check_in'], check_out=data['check_out'],
+                                    price_sort=data['price_sort'])
+
+    if not hotels:
+        await message.answer('Гостиниц по Вашему запросу не найдено!')
+    else:
+        data_to_user_response = await handler_request(request=hotels, message_data=data, is_photo=True)
+        for hotel in data_to_user_response:
+
+            hotel_id = hotel.get('hotel_id')
+            answer_message = f'{hotel.get("hotel_name")}\n' \
+                             f'адрес: {hotel.get("address")}\n' \
+                             f'расстояние от центра: {hotel.get("distance_from_center")}\n' \
+                             f'цена: {hotel.get("price")}\n' \
+                             f'ссылка на отель: {f"ru.hotels.com/ho{hotel_id}"}'
+
+            await message.answer(answer_message)
+            if len(hotel['photo_url']) >= 2:
+                media = types.MediaGroup()
+                for photo in hotel['photo_url']:
+                    media.attach_photo(photo)
+
+                await message.answer_media_group(media)
+            else:
+                await message.answer_photo(hotel['photo_url'][0])
+
+    await state.reset_state()
+    logger.info('Очистил state')
 
