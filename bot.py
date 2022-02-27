@@ -16,7 +16,7 @@ async def on_startup(dp):
 
 async def on_shutdown(dp):
     """Остановка бота"""
-    logger.info('Бот завершает свою работу')
+
     await dp.storage.close()
     await dp.storage.wait_closed()
 

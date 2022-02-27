@@ -1,26 +1,25 @@
+import re
 from datetime import datetime, date
 
-from telegram_bot_calendar import DetailedTelegramCalendar
 from aiogram import types
 from aiogram.dispatcher import FSMContext
 from loguru import logger
-import re
+from telegram_bot_calendar import DetailedTelegramCalendar
 
-from data.requests import get_city_id, get_hotels
 from data import config
+from data.handler_request import handler_request
+from data.requests import get_city_id, get_hotels
 from keyboards.inline.is_photo import is_photo
-
 from loader import dp, bot
 from states.anyprice import Anyprice
 from utils.chek_local import locale_check
-from data.handler_request import handler_request
 
 
 @dp.message_handler(commands=['lowprice', 'highprice'], state='*')
 async def get_any_price(message: types.Message, state: FSMContext):
     """
     По нажатию на команду /lowprice или /highprice запускает серию хендлеров для уточнения информации
-    Сохраняет ответы в states.Anyprice
+    Сохраняет ответы в машину состояний states.Anyprice
     :param state: Данные из контекста
     :param message: Входящее сообщение
     """
@@ -73,21 +72,22 @@ async def answer_hotel_amount(message: types.Message, state: FSMContext):
     """
        Получает ответ из answer_city хэндлера, сохраняет в кэш, спрашивает следующий вопрос,
        сохраняет в state следующего вопроса.
-
        :param message: входящее сообщение из state
        :param state: Переданный контекст
-       :return: None
        """
     answer = message.text
     pattern = re.search(r'\D', answer)
+
     if pattern:
         await message.answer('Введите цифрами')
+
     logger.info('Получил ответ: {}. Сохраняю в state'.format(answer))
-    logger.info('Сохраняю ответ в state: hotel_amount')
+
     async with state.proxy() as data:
         data['hotels_amount'] = int(answer)
 
     await message.answer('Выберите дату заезда')
+
     logger.info('Вызываю Календарь заезда')
     LSTEP = {'y': 'год', 'm': 'месяц', 'd': 'день'}
     min_date = list(map(lambda x: int(x), datetime.now().strftime('%Y %m %d').split()))
@@ -99,6 +99,11 @@ async def answer_hotel_amount(message: types.Message, state: FSMContext):
 
 @dp.callback_query_handler(DetailedTelegramCalendar.func(), state=Anyprice.check_in_date)
 async def inline_kb_answer_callback_handler(call: types.CallbackQuery, state: FSMContext):
+    """
+    Получает ответ из хэндлера о дате заезда и сохраняет в state
+    :param call: входящее сообщение из state
+    :param state: Переданный контекст
+    """
     LSTEP = {'y': 'год', 'm': 'месяц', 'd': 'день'}
     min_date = list(map(lambda x: int(x), datetime.now().strftime('%Y %m %d').split()))
     result, key, step = DetailedTelegramCalendar(locale='ru', min_date=date(*min_date)).process(call.data)
@@ -109,23 +114,33 @@ async def inline_kb_answer_callback_handler(call: types.CallbackQuery, state: FS
                                     call.message.message_id,
                                     reply_markup=key)
     elif result:
-
         await bot.edit_message_text('Вы выбрали {}'.format(result),
                                     call.message.chat.id,
                                     call.message.message_id)
+
         logger.info('Получили дату заезда: - {}'.format(result))
+
         async with state.proxy() as data:
             data['check_in'] = str(result)
             logger.info('Сохраняю ответ в state: check_in_date')
+
         await call.message.answer('Выберите дату выезда')
+
         logger.info('Вызываю Календарь выезда')
+
         calendar, step = DetailedTelegramCalendar(locale='ru', min_date=date(*min_date)).build()
         await call.message.answer('Выберите {}'.format(LSTEP[step]), reply_markup=calendar)
+
         await Anyprice.next()
 
 
 @dp.callback_query_handler(DetailedTelegramCalendar.func(), state=Anyprice.check_out_date)
 async def inline_kb_answer_callback_handler(call: types.CallbackQuery, state: FSMContext):
+    """
+    Получает ответ из хэндлера о дате выезда и сохраняет в state
+    :param call: входящее сообщение из state
+    :param state: Переданный контекст
+    """
     LSTEP = {'y': 'год', 'm': 'месяц', 'd': 'день'}
     min_date = list(map(lambda x: int(x), datetime.now().strftime('%Y %m %d').split()))
     result, key, step = DetailedTelegramCalendar(locale='ru', min_date=date(*min_date)).process(call.data)
@@ -140,21 +155,25 @@ async def inline_kb_answer_callback_handler(call: types.CallbackQuery, state: FS
         await bot.edit_message_text('Вы выбрали {}'.format(result),
                                     call.message.chat.id,
                                     call.message.message_id)
+
         logger.info('Получили дату выезда: - {}'.format(result))
+
         async with state.proxy() as data:
             data['check_out'] = str(result)
             logger.info('Сохраняю ответ в state: check_out_date')
+
         logger.info('Спрашиваем сколько фото показать.')
+
         await call.message.answer('Загрузить фотографии?', reply_markup=is_photo)
+
         await Anyprice.next()
 
 
 @dp.callback_query_handler(state=Anyprice.IsPhoto)
 async def answer_is_photo(call: types.CallbackQuery, state: FSMContext):
     """
-        Получает ответ из answer_hotel_amount хэндлера, сохраняет в кэш, в зависимости от результата прошлого ответа,
-        или спрашивает следующий вопрос и сохраняет в state следующего вопроса или обнуляет state
-
+        Получает ответ , сохраняет в кэш, в зависимости от результата прошлого ответа,
+        если ответ нет, выводим результат, иначе идем в следующий state
         :param call: входящее сообщение из state
         :param state: Переданный контекст
         """
@@ -164,31 +183,34 @@ async def answer_is_photo(call: types.CallbackQuery, state: FSMContext):
 
     async with state.proxy() as data:
         data['is_photo']: str = answer
-
         if data['is_photo'] == 'да':
             await call.message.answer('Укажите количество фотографий. (max: {})'.format(config.MAX_PHOTO_TO_SHOW))
             await Anyprice.next()
 
         elif data['is_photo'] == 'нет':
-
             await call.message.answer('Загружаю информацию, ожидайте...')
             hotels = await get_hotels(city_id=data['city_id'], hotels_amount=data['hotels_amount'],
                                       currency=data['currency'], locale=data['locale'],
                                       check_in=data['check_in'], check_out=data['check_out'],
                                       price_sort=data['price_sort'])
-
             if not hotels:
                 await call.message.answer('Гостиниц по Вашему запросу не найдено!')
             else:
                 data_to_user_response = await handler_request(request=hotels, message_data=data, is_photo=False)
                 for hotel in data_to_user_response:
                     hotel_id = hotel.get('hotel_id')
-                    answer_message = f'{hotel.get("hotel_name")}\n' \
-                                     f'адрес: {hotel.get("address")}\n' \
-                                     f'расстояние от центра: {hotel.get("distance_from_center")}\n' \
-                                     f'цена: {hotel.get("price")}\n' \
-                                     f'ссылка на отель: {f"ru.hotels.com/ho{hotel_id}"}'
-
+                    answer_message = '{name}\n' \
+                                     'адрес: {adress}\n' \
+                                     'расстояние от центра: {dist}\n' \
+                                     'цена: {price}\n' \
+                                     'ссылка на отель: {url}'.format(name=hotel.get("hotel_name"),
+                                                                     adress=hotel.get("address"),
+                                                                     dist=hotel.get("distance_from_center"),
+                                                                     price=hotel.get("price"),
+                                                                     url='ru.hotels.com/ho{}'.format(
+                                                                         hotel_id
+                                                                     )
+                                                                     )
                     await call.message.answer(answer_message)
             await state.reset_state()
             logger.info('Очистил state')
@@ -202,7 +224,6 @@ async def answer_photo_amount(message: types.Message, state: FSMContext):
 
        :param message: входящее сообщение из state
        :param state: Переданный контекст
-       :return: None
        """
     answer = message.text
     pattern = re.search(r'\D', answer)
@@ -225,24 +246,28 @@ async def answer_photo_amount(message: types.Message, state: FSMContext):
     else:
         data_to_user_response = await handler_request(request=hotels, message_data=data, is_photo=True)
         for hotel in data_to_user_response:
-
             hotel_id = hotel.get('hotel_id')
-            answer_message = f'{hotel.get("hotel_name")}\n' \
-                             f'адрес: {hotel.get("address")}\n' \
-                             f'расстояние от центра: {hotel.get("distance_from_center")}\n' \
-                             f'цена: {hotel.get("price")}\n' \
-                             f'ссылка на отель: {f"ru.hotels.com/ho{hotel_id}"}'
+            answer_message = '{name}\n' \
+                             'адрес: {adress}\n' \
+                             'расстояние от центра: {dist}\n' \
+                             'цена: {price}\n' \
+                             'ссылка на отель: {url}'.format(name=hotel.get("hotel_name"),
+                                                             adress=hotel.get("address"),
+                                                             dist=hotel.get("distance_from_center"),
+                                                             price=hotel.get("price"),
+                                                             url='ru.hotels.com/ho{}'.format(
+                                                                 hotel_id
+                                                             )
+                                                             )
 
             await message.answer(answer_message)
             if len(hotel['photo_url']) >= 2:
                 media = types.MediaGroup()
                 for photo in hotel['photo_url']:
                     media.attach_photo(photo)
-
                 await message.answer_media_group(media)
             else:
                 await message.answer_photo(hotel['photo_url'][0])
 
     await state.reset_state()
     logger.info('Очистил state')
-

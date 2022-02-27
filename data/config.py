@@ -26,5 +26,5 @@ locales = {
     }
 }
 
-MAX_HOTELS_TO_SHOW = 25
+MAX_HOTELS_TO_SHOW = 15
 MAX_PHOTO_TO_SHOW = 10

@@ -4,7 +4,6 @@ import typing
 import aiohttp.client
 from loguru import logger
 
-
 from data import config
 
 
@@ -18,12 +17,11 @@ async def get_city_id(city_name: str, locale: str) -> int:
     """
     Запрашивает данные по полученному от пользователя городу, и получает id города для поиска отелей.
     :param city_name: Название города для поиска
-    :param locale: Локаль для запроса
+    :param locale: Локация для запроса
     :return: Id города
     """
     url = '{}/locations/search'.format(config.BASE_URL)
     params = {'query': city_name, 'locale': str(locale)}
-
     try:
         async with aiohttp.ClientSession() as session:
             async with session.get(url, headers=config.headers, params=params) as resp:
@@ -43,10 +41,10 @@ async def get_hotels(city_id: int, hotels_amount: int, currency: str, locale: st
                      check_out: str, price_sort: str) -> typing.Optional[list]:
     """
     Запрашивает отели в id города
-    :param price_sort:
-    :param check_out:
-    :param check_in:
-    :param hotels_amount: Количество городов
+    :param price_sort: сортировка по убыванию или возрастанию цены
+    :param check_out: дата выезда
+    :param check_in:дата заезда
+    :param hotels_amount: Количество отелей
     :param city_id: id города
     :param currency: Код валюты
     :param locale: Код страны
@@ -73,12 +71,11 @@ async def get_hotels(city_id: int, hotels_amount: int, currency: str, locale: st
         logger.error(err)
 
 
-async def get_photos(hotel_id: int, hotels_amount: int) -> list:
+async def get_photos(hotel_id: int, photo_amount: int) -> list:
     """
     Запрашивает фотографии по id отеля
-    :param hotels_amount:
-    :param hotel_id:
-    :return:
+    :param photo_amount: сколько фото
+    :param hotel_id: Id отеля
     """
     url = '{}/properties/get-hotel-photos'.format(config.BASE_URL)
     params = [('id', hotel_id)]
@@ -87,10 +84,9 @@ async def get_photos(hotel_id: int, hotels_amount: int) -> list:
             async with session.get(url=url, headers=config.headers, params=params) as resp:
                 logger.info('Отправляю запрос на сервер {}'.format(resp.url))
                 response = await resp.json()
-                photo_list = response.get('hotelImages')[:hotels_amount]
+                photo_list = response.get('hotelImages')[:photo_amount]
                 photo_list_url = [re.sub(pattern=r'{size}', repl='y', string=hotel.get('baseUrl')) for hotel in
                                   photo_list]
                 return photo_list_url
-
     except Exception as err:
         logger.error(err)
