@@ -81,100 +81,69 @@ async def answer_hotel_amount(message: types.Message, state: FSMContext):
     pattern = re.search(r'\D', answer)
     if pattern:
         await message.answer('Введите цифрами')
-    logger.info(f'Получил ответ: {answer}. Сохраняю в state')
-
+    logger.info('Получил ответ: {}. Сохраняю в state'.format(answer))
+    logger.info('Сохраняю ответ в state: hotel_amount')
     async with state.proxy() as data:
         data['hotels_amount'] = int(answer)
 
     await message.answer('Выберите дату заезда')
-    await start(message)
-
-    logger.info('Сохраняю ответ в state: hotel_amount')
-    await Anyprice.next()
-
-
-@dp.message_handler(commands=['calendar'], state='*')
-async def start(message):
+    logger.info('Вызываю Календарь заезда')
     LSTEP = {'y': 'год', 'm': 'месяц', 'd': 'день'}
     min_date = list(map(lambda x: int(x), datetime.now().strftime('%Y %m %d').split()))
     calendar, step = DetailedTelegramCalendar(locale='ru', min_date=date(*min_date)).build()
-    await message.answer(f"Выберите {LSTEP[step]}", reply_markup=calendar)
+    await message.answer('Выберите {}'.format(LSTEP[step]), reply_markup=calendar)
+
+    await Anyprice.next()
 
 
-@dp.callback_query_handler(DetailedTelegramCalendar.func(), state='*')
+@dp.callback_query_handler(DetailedTelegramCalendar.func(), state=Anyprice.check_in_date)
 async def inline_kb_answer_callback_handler(call: types.CallbackQuery, state: FSMContext):
     LSTEP = {'y': 'год', 'm': 'месяц', 'd': 'день'}
     min_date = list(map(lambda x: int(x), datetime.now().strftime('%Y %m %d').split()))
     result, key, step = DetailedTelegramCalendar(locale='ru', min_date=date(*min_date)).process(call.data)
 
     if not result and key:
-        await bot.edit_message_text(f"Select {LSTEP[step]}",
+        await bot.edit_message_text('Выберите {}'.format(LSTEP[step]),
                                     call.message.chat.id,
                                     call.message.message_id,
                                     reply_markup=key)
     elif result:
 
-        await bot.edit_message_text(f"Вы выбрали {result}",
+        await bot.edit_message_text('Вы выбрали {}'.format(result),
                                     call.message.chat.id,
                                     call.message.message_id)
-        print(result)
-
+        logger.info('Получили дату заезда: - {}'.format(result))
+        async with state.proxy() as data:
+            data['check_in'] = result
+            logger.info('Сохраняю ответ в state: check_in_date')
+        await call.message.answer('Выберите дату выезда')
+        logger.info('Вызываю Календарь выезда')
+        calendar, step = DetailedTelegramCalendar(locale='ru', min_date=date(*min_date)).build()
+        await call.message.answer('Выберите {}'.format(LSTEP[step]), reply_markup=calendar)
         await Anyprice.next()
 
 
-# @dp.callback_query_handler(simple_cal_callback.filter(), state=Anyprice.check_in_date)
-# async def answer_check_in(call: types.CallbackQuery, callback_data: dict, state: FSMContext):
-#     """
-#     Получает ответ из хэндлера о дате заезда и сохраняет в state
-#     :param callback_data:
-#     :param call: входящее сообщение из state
-#     :param state: Переданный контекст
-#     :return:
-#     """
-#
-#     logger.info('Вызываю Календарь...')
-#     selected, date = await SimpleCalendar().process_selection(call, callback_data)
-#     if selected:
-#         check_in_date = date.strftime("%Y-%m-%d")
-#         logger.info(f'Получили дату заселения: - {check_in_date}')
-#
-#         logger.info('Отвечаем пользователю.')
-#         await call.message.answer(f'You selected {check_in_date}')
-#         logger.info(f'Добавляем {check_in_date} в state')
-#
-#         async with state.proxy() as data:
-#             data['check_in'] = check_in_date
-#
-#         logger.info('Спрашиваем у пользователя дату выезда!')
-#         await call.message.answer('Выберите дату выезда:', reply_markup=await SimpleCalendar().start_calendar())
-#
-#         await Anyprice.next()
-#
-#
-# @dp.callback_query_handler(simple_cal_callback.filter(), state=Anyprice.check_out_date)
-# async def answer_check_out(call: types.CallbackQuery, callback_data: dict, state: FSMContext):
-#     """
-#     Получает ответ из хэндлера о дате выезда и сохраняет в state
-#     :param callback_data:
-#     :param call: входящее сообщение из state
-#     :param state: Переданный контекст
-#     :return:
-#     """
-#     logger.info('Вызываю Календарь...')
-#     selected, date = await SimpleCalendar().process_selection(call, callback_data)
-#     if selected:
-#         check_out_date = date.strftime("%Y-%m-%d")
-#         logger.info(f'Получили дату выезда: - {check_out_date}')
-#
-#         logger.info('Отвечаем пользователю.')
-#         await call.message.answer(f'You selected {check_out_date}')
-#         logger.info(f'Добавляем {check_out_date} в state')
-#
-#         async with state.proxy() as data:
-#             data['check_out'] = check_out_date
-#
-#         logger.info('Спрашиваем сколько фото показать.')
-#         await call.message.answer('Сколько фотографий показать? ')
-#         logger.info('Сохраняю ответ в state: adult_qnt')
-#         await Anyprice.next()
+@dp.callback_query_handler(DetailedTelegramCalendar.func(), state=Anyprice.check_out_date)
+async def inline_kb_answer_callback_handler(call: types.CallbackQuery, state: FSMContext):
+    LSTEP = {'y': 'год', 'm': 'месяц', 'd': 'день'}
+    min_date = list(map(lambda x: int(x), datetime.now().strftime('%Y %m %d').split()))
+    result, key, step = DetailedTelegramCalendar(locale='ru', min_date=date(*min_date)).process(call.data)
+
+    if not result and key:
+        await bot.edit_message_text('Выберите {}'.format(LSTEP[step]),
+                                    call.message.chat.id,
+                                    call.message.message_id,
+                                    reply_markup=key)
+    elif result:
+
+        await bot.edit_message_text('Вы выбрали {}'.format(result),
+                                    call.message.chat.id,
+                                    call.message.message_id)
+        logger.info('Получили дату выезда: - {}'.format(result))
+        async with state.proxy() as data:
+            data['check_out'] = result
+            logger.info('Сохраняю ответ в state: check_out_date')
+        logger.info('Спрашиваем сколько фото показать.')
+        await call.message.answer('Сколько фотографий показать? ')
+        await Anyprice.next()
 
